@@ -504,8 +504,8 @@ class ReadGraph(Graph):
                     
 class SyntenyGraph(Graph):
     """Graph class to represent scaffolds derived from synteny information"""
-    def __init__(self, genome, reference, identity=0.51, overlap=0.66, threads=4, 
-                 mingap=15, maxgap=0, printlimit=10, log=sys.stderr):
+    def __init__(self, genome, reference, identity=0.51, overlap=0.66, norearangements=0, 
+                 threads=4, mingap=15, maxgap=0, printlimit=10, log=sys.stderr):
         """Construct a graph with the given vertices & features"""
         self.name = "ReferenceGraph"
         self.log = log
@@ -521,6 +521,10 @@ class SyntenyGraph(Graph):
         self.identity = identity
         self.overlap  = overlap
         self.threads  = threads
+        # 0-local alignment; 
+        if norearangements:
+            # 1-global/overlap - simpler and faster
+            self._get_hits = self._get_hits_overlap
         # scaffolding options
         self.mingap  = mingap
         self._set_maxgap(maxgap)
@@ -535,26 +539,27 @@ class SyntenyGraph(Graph):
             maxgap = min_maxgap
         # set variable
         self.maxgap = maxgap
-        #self.log.write(" maxgap cut-off of %s bp\n"%self.maxgap)
+        self.log.write(" maxgap cut-off of %s bp\n"%self.maxgap)
 
-    def _lastal(self):
-        """Start LAST"""
+    def _lastal_overlap(self):
+        """Start LAST in overlap mode. Slightly faster than local mode,
+        but much less sensitive."""
         # build db
         if not os.path.isfile(self.ref+".suf"):
             os.system("lastdb %s %s" % (self.ref, self.ref))
         # run LAST
         args = ["lastal", "-T", "1", "-f", "TAB", "-P", str(self.threads), self.ref, self.genome]
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=sys.stderr)        
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=sys.stderr)
         return proc.stdout
-        
-    def _get_hits(self):
+
+    def _get_hits_overlap(self):
         """Resolve & report scaffolds"""
         ## consider splitting into two functions
         ## to facilitate more input formats
         t2hits = {}
         t2size = {}
         q2hits = {}
-        for l in self._lastal():
+        for l in self._lastal_overlap():
             if l.startswith('#'):
                 continue
             # unpack
@@ -609,6 +614,117 @@ class SyntenyGraph(Graph):
                 # no overlap with previous or better than previous
                 t2hits[t].append((tstart, tend, q, qstart, qend, strand))
         return t2hits, t2size
+        
+    def _lastal(self):
+        """Start LAST in local mode"""
+        # build db
+        if not os.path.isfile(self.ref+".suf"):
+            os.system("lastdb %s %s" % (self.ref, self.ref))
+        # run LAST aligner, split and maf-convert in pipe
+        args1 = ["lastal", "-P", str(self.threads), self.ref, self.genome]
+        proc1 = subprocess.Popen(args1, stdout=subprocess.PIPE, stderr=sys.stderr)
+        args2 = ["last-split", "-"]
+        proc2 = subprocess.Popen(args2, stdout=subprocess.PIPE, stdin=proc1.stdout, stderr=sys.stderr)
+        args3 = ["maf-convert", "tab", "-"]
+        proc3 = subprocess.Popen(args3, stdout=subprocess.PIPE, stdin=proc2.stdout, stderr=sys.stderr)
+        return proc3.stdout
+
+    def _get_best_global_match(self, hits):
+        """Return best, longest match for given q-t pair"""
+        newHits = [[hits[0]]]
+        for hit in hits[1:]:
+            # break synteny if too large gap
+            #if hit[2]=='scaffold22|size195699': print hit, hit[0]-newHits[-1][-1][0]
+            if hit[0]-newHits[-1][-1][0] > self.maxgap:
+                newHits.append([])
+            newHits[-1].append(hit)
+        # sort by the longest consecutive alg
+        newHits = sorted(newHits, key=lambda x: sum(y[1] for y in x), reverse=1)
+        return newHits[0]
+        
+    def _calculat_global_algs(self, t2hits):
+        """Return simplified, global alignments"""
+        t2hits2 = {}
+        for t in t2hits:
+            if t not in t2hits2:
+                t2hits2[t] = []
+            for q in t2hits[t]:
+                # sort by r pos
+                hits = self._get_best_global_match(sorted(t2hits[t][q]))
+                #get score, identity & overlap
+                score = sum(x[-1] for x in hits)
+                qalg  = sum(x[4] for x in hits)
+                identity = 1.0 * score / qalg # this local identity in hits ignoring gaps
+                overlap  = 1.0 * qalg / self.contigs[q]
+                #filter by identity and overlap
+                if identity < self.identity or overlap < self.overlap:
+                    continue
+                # get global start & end
+                ## this needs work and bulletproofing!!!
+                tstart = hits[0][0]
+                tend   = hits[-1][0] + hits[-1][1]
+                qstart = hits[0][3]
+                qend   = hits[-1][3] + hits[-1][4]
+                # and report rearrangements
+                
+                # get strand correctly - by majority voting
+                strand = int(round( 1.0 * sum(x[4]*x[5] for x in hits) / qalg))
+                t2hits2[t].append((tstart, tend, q, qstart, qend, strand))
+                print t, tstart, tend, q, qstart, qend, strand, len(t2hits[t][q]), identity, overlap
+                
+        return t2hits2
+        
+    def _get_hits(self):
+        """Resolve & report scaffolds"""
+        ## consider splitting into two functions
+        ## to facilitate more input formats
+        t2hits, t2size = {}, {}
+        q2hits = {}
+        for l in self._lastal():
+            if l.startswith('#'):
+                continue
+            # unpack
+            (score, t, tstart, talg, tstrand, tsize, q, qstart, qalg, qstrand, qsize, blocks) = l.split()[:12]
+            (score, qstart, qalg, qsize, tstart, talg, tsize) = map(int, (score, qstart, qalg, qsize, tstart, talg, tsize))
+            # prepare storage
+            if t not in t2hits:
+                t2hits[t] = {q: []}
+                t2size[t] = tsize
+            elif q not in t2hits[t]:
+                t2hits[t][q] = []
+            if q not in q2hits:
+                q2hits[q] = []
+            # For - strand matches, coordinates in the reverse complement of the 2nd sequence are used.
+            strand = 0 # forward
+            if qstrand == "-":
+                strand = 1 # reverse
+            t2hits[t][q].append((tstart, talg, q, qstart, qalg, strand, score))
+            q2hits[q].append((qstart, qalg, strand, t, tstart, talg))
+
+        # get simplified global alignments
+        t2hits = self._calculat_global_algs(t2hits)
+        for t, hits in t2hits.iteritems(): print t, hits
+        # remove q that overlap too much on t
+        # sort by r pos
+        for t in t2hits:
+            hits = t2hits[t]
+            # remove hits overlapping too much
+            t2hits[t] = []
+            for tstart, tend, q, qstart, qend, strand in sorted(hits):
+                # overlap with previous above threshold
+                if t2hits[t] and t2hits[t][-1][1]-tstart > self.overlap*self.contigs[q]:
+                    phit = t2hits[t][-1]
+                    # do nothing if previous hit is better
+                    if tend - tstart <= phit[1]-phit[0]:
+                        continue
+                    # remove previous match
+                    t2hits[t].pop(-1)
+                # add match only if first,
+                # no overlap with previous or better than previous
+                t2hits[t].append((tstart, tend, q, qstart, qend, strand))
+        print "after clean-up"
+        for t, hits in t2hits.iteritems(): print t, hits
+        return t2hits, t2size
 
     def _estimate_gap(self, data, pdata):
         """Return estimated gap size"""
@@ -654,7 +770,6 @@ class SyntenyGraph(Graph):
                 orientations.append(strand)
                 # keep track of previous data
                 pdata = data
-                #print " %s %s-%s %s:%s-%s %s %s bp"%(len(self.scaffolds)+1, tstart, tend, self.shorter(q), qstart, qend, strand, gap)
                 
             # add to scaffolds
             if len(scaffold)>1:
@@ -682,12 +797,12 @@ def main():
     refo = parser.add_argument_group('Reference-based scaffolding options')
     refo.add_argument("-r", "--ref", "--reference", default='', 
                       help="reference FASTA file")
-    refo.add_argument("--identity",        default=0.51, type=float,
+    refo.add_argument("--identity",        default=0.33, type=float,
                       help="min. identity [%(default)s]")
     refo.add_argument("--overlap",         default=0.66, type=float,
                       help="min. overlap  [%(default)s]")
     refo.add_argument("-g", "--maxgap",   default=0, type=int,
-                      help="max. distance between adjacent contigs [0.01 * assembly_size]")
+                      help="max. distance between adjacent contigs [0.02 * assembly_size]")
     
     scaf = parser.add_argument_group('NGS-based scaffolding options (!NOT IMPLEMENTED!)')
     scaf.add_argument("-i", "--fastq", nargs="+",

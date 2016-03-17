@@ -111,7 +111,7 @@ Runs took ~0.5 min for CANPA on `4 CPUs` and ~2 min for ARATH on `16 CPUs`.
 - Reduce your assembly before (fasta2homozygous.py) as any redundancy will likely break the synteny.
 - pyScaf works better with contigs than scaffolds, as scaffolds are often affected by mis-assemblies (no *de novo assembler* / scaffolder is perfect...), which breaks synteny. 
 - pyScaf works very well if divergence between reference genome and assembled contigs is below 20% at nucleotide level. 
-- pyScaf does not allow any rearrangements (ie. translocations). I don't know also how the tool will behave if there are big gaps in contigs... 
+- pyScaf does not allow large rearrangements ie. deletions, insertion, inversions, translocations. 
 - Consider closing gaps after scaffolding. 
 
 
