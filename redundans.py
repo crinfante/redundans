@@ -404,6 +404,8 @@ def main():
                       help="min. overlap  [%(default)s]")
     redu.add_argument("--minLength",       default=200, type=int, 
                       help="min. contig length [%(default)s]")
+    redu.add_argument("--setmask",       default=0, type=int, 
+                      help="option passed to lastal for softmasking [%(default)]")
     scaf = parser.add_argument_group('Scaffolding options')
     scaf.add_argument("-j", "--joins",  default=5, type=int, 
                       help="min pairs to join contigs [%(default)s]")
