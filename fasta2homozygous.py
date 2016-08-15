@@ -16,7 +16,7 @@ import gzip, math, os, sys, subprocess
 from datetime import datetime
 from FastaIndex import FastaIndex
 
-def run_last(fasta, identity, threads, verbose):
+def run_last(fasta, identity, setmask, threads, verbose):
     """Start LAST with multi-threads. """
     if verbose:
         sys.stderr.write(" Running LAST...\n")
@@ -24,7 +24,7 @@ def run_last(fasta, identity, threads, verbose):
     if not os.path.isfile(fasta+".suf"):
         os.system("lastdb %s %s" % (fasta, fasta))
     # run LAST
-    args = ["lastal", "-T", "1", "-f", "TAB", "-P", str(threads), fasta, fasta]
+    args = ["lastal", "-T", "1", "-f", "TAB", "-u", str(setmask), "-P", str(threads), fasta, fasta]
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=sys.stderr)        
     return proc.stdout
     
