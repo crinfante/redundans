@@ -199,19 +199,19 @@ def main():
                         help="FASTA file(s)")
     parser.add_argument("-t", "--threads", default=4, type=int, 
                         help="max threads to run [%(default)s]")
-    #parser.add_argument("-o", "--output",    default=sys.stdout, type=argparse.FileType('w'), 
-    #                    help="output stream   [stdout]")
-    parser.add_argument("--identity",    default=0.51, type=float, 
-                        help="min. identity   [%(default)s]")
-    parser.add_argument("--overlap",     default=0.66, type=float, 
-                        help="min. overlap    [%(default)s]")
-	parser.add_argument("--setmask",       default=0, type=int, 
-                      help="option passed to lastal for softmasking [%(default)]")
+    #parser.add_argument("-o", "--output", default=sys.stdout, type=argparse.FileType('w'), 
+    #                    help="output stream [stdout]")
+    parser.add_argument("--identity", default=0.51, type=float, 
+                        help="min. identity [%(default)s]")
+    parser.add_argument("--overlap", default=0.66, type=float, 
+                        help="min. overlap [%(default)s]")
+    parser.add_argument("--setmask", default=0, type=int, 
+                        help="option passed to lastal for softmasking [%(default)]")
     parser.add_argument("--joinOverlap", default=200, type=int, 
                         help="min. end overlap to join two contigs [%(default)s]")
     parser.add_argument("--endTrimming", default=33, type=int, 
                         help="max. end trim on contig join [%(default)s]")
-    parser.add_argument("--minLength",   default=200, type=int, 
+    parser.add_argument("--minLength", default=200, type=int, 
                         help="min. contig length [%(default)s]")
     
     o = parser.parse_args()
