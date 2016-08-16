@@ -33,7 +33,7 @@ def fasta2hits(fasta, threads, identityTh, overlapTh, joinOverlap, endTrimming, 
     overlapping = []
     hits = []
     added = set()
-    for l in run_last(fasta.name, identityTh, threads, verbose):
+    for l in run_last(fasta.name, identityTh, setmask, threads, verbose):
         if l.startswith('#'):
             continue
         # unpack
@@ -115,7 +115,7 @@ def fasta2homozygous(out, fasta, identity, overlap, minLength, \
     if verbose:
         log.write("Parsing alignments...\n")
     #filter alignments
-    hits, overlapping = fasta2hits(fasta, threads, identity, overlap, joinOverlap, endTrimming, verbose)
+    hits, overlapping = fasta2hits(fasta, threads, identity, overlap, setmask, joinOverlap, endTrimming, verbose)
 
     #remove redundant
     ## maybe store info about removed also
@@ -205,6 +205,8 @@ def main():
                         help="min. identity   [%(default)s]")
     parser.add_argument("--overlap",     default=0.66, type=float, 
                         help="min. overlap    [%(default)s]")
+	parser.add_argument("--setmask",       default=0, type=int, 
+                      help="option passed to lastal for softmasking [%(default)]")
     parser.add_argument("--joinOverlap", default=200, type=int, 
                         help="min. end overlap to join two contigs [%(default)s]")
     parser.add_argument("--endTrimming", default=33, type=int, 
@@ -224,7 +226,7 @@ def main():
     sys.stderr.write("#file name\tgenome size\tcontigs\theterozygous size\t[%]\theterozygous contigs\t[%]\tidentity [%]\tpossible joins\thomozygous size\t[%]\thomozygous contigs\t[%]\n")
     for fasta in o.fasta:
         out = gzip.open(fasta.name+".homozygous.fa.gz", "w")
-        fasta2homozygous(out, fasta, o.identity, o.overlap, o.minLength, \
+        fasta2homozygous(out, fasta, o.identity, o.overlap, o.setmask, o.minLength, \
                          libraries, limit, o.threads, o.joinOverlap, o.endTrimming, o.verbose)
         out.close()
 

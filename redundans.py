@@ -288,8 +288,8 @@ def redundans(fastq, fasta, outdir, mapq, threads, resume,
         # reduce
         with open(reducedFname, "w") as out:
             info = fasta2homozygous(out, open(contigsFname), identity, overlap, \
-                                    minLength, libraries, limit, threads, \
-                                    verbose=0, log=log)
+                                    setmask, minLength, libraries, limit, \
+                                    threads, verbose=0, log=log)
         # index
         with open(reducedFname) as index:
             fasta_stats(index)
@@ -442,7 +442,7 @@ def main():
 
     # initialise pipeline
     redundans(o.fastq, o.fasta, o.outdir, o.mapq, o.threads, o.resume, \
-              o.identity, o.overlap, o.minLength,  \
+              o.identity, o.overlap, o.minLength, o.setmask, \
               o.joins, o.linkratio, o.limit, o.iters, o.sspacebin, \
               o.noreduction, o.noscaffolding, o.nogapclosing, o.nocleaning, \
               o.verbose, o.log)
