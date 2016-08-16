@@ -252,7 +252,7 @@ def _corrupted_file(fname):
         return True
     
 def redundans(fastq, fasta, outdir, mapq, threads, resume, 
-              identity, overlap, minLength, \
+              identity, overlap, minLength, setmask, \
               joins, linkratio, readLimit, iters, sspacebin, \
               reduction=1, scaffolding=1, gapclosing=1, cleaning=1, \
               verbose=1, log=sys.stderr):
