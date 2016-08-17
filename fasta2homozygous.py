@@ -115,7 +115,7 @@ def fasta2homozygous(out, fasta, identity, overlap, minLength, \
     if verbose:
         log.write("Parsing alignments...\n")
     #filter alignments
-    hits, overlapping = fasta2hits(fasta, threads, identity, overlap, setmask, joinOverlap, endTrimming, verbose)
+    hits, overlapping = fasta2hits(fasta, threads, identity, overlap, joinOverlap, endTrimming, verbose)
 
     #remove redundant
     ## maybe store info about removed also
